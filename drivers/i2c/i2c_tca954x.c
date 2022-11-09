@@ -96,6 +96,19 @@ static int tca954x_transfer(const struct device *dev,
 	res = i2c_transfer(config->i2c.bus, msgs, num_msgs, addr);
 
 end_trans:
+	// If there was an IO error, try to reset the mux and bus
+	if (res == -EIO) {
+		data->selected_chan = 0;
+
+		if (config->reset_gpios.port) {
+			gpio_pin_set_dt(&config->reset_gpios, 1);
+			k_busy_wait(1); // Wait 1 microsecond for reset
+			gpio_pin_set_dt(&config->reset_gpios, 0);
+		}
+
+		i2c_recover_bus(config->i2c.bus);
+	}
+
 	k_mutex_unlock(&data->lock);
 	return res;
 }
