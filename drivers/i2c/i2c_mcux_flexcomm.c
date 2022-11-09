@@ -6,6 +6,7 @@
  */
 
 #define DT_DRV_COMPAT nxp_lpc_i2c
+#define I2C_TRANSFER_TIMEOUT K_MSEC(100)
 
 #include <errno.h>
 #include <zephyr/drivers/i2c.h>
@@ -171,8 +172,10 @@ static int mcux_flexcomm_transfer(const struct device *dev,
 			break;
 		}
 
-		/* Wait for the transfer to complete */
-		k_sem_take(&data->device_sync_sem, K_FOREVER);
+		/* Wait for the transfer to complete or time out */
+		if (k_sem_take(&data->device_sync_sem, I2C_TRANSFER_TIMEOUT) != 0) {
+			data->callback_status = kStatus_I2C_Timeout;
+		}
 
 		/* Return an error if the transfer didn't complete
 		 * successfully. e.g., nak, timeout, lost arbitration
@@ -190,6 +193,17 @@ static int mcux_flexcomm_transfer(const struct device *dev,
 	k_sem_give(&data->lock);
 
 	return ret;
+}
+
+static int mcux_flexcomm_recover_bus(const struct device *dev)
+{
+	const struct mcux_flexcomm_config *config = dev->config;
+	I2C_Type *base = config->base;
+
+	I2C_MasterEnable(base, false);
+	I2C_MasterEnable(base, true);
+
+	return 0;
 }
 
 #if defined(CONFIG_I2C_TARGET)
@@ -381,6 +395,7 @@ static int mcux_flexcomm_init(const struct device *dev)
 static const struct i2c_driver_api mcux_flexcomm_driver_api = {
 	.configure = mcux_flexcomm_configure,
 	.transfer = mcux_flexcomm_transfer,
+	.recover_bus = mcux_flexcomm_recover_bus,
 #if defined(CONFIG_I2C_TARGET)
 	.target_register = mcux_flexcomm_target_register,
 	.target_unregister = mcux_flexcomm_target_unregister,
