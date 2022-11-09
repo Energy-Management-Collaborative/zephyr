@@ -93,7 +93,8 @@ manifest:
       groups:
         - hal
     - name: hal_nxp
-      revision: d957472002a3758154f402e982d95ce90cf58e12
+      url: https://github.com/energy-management-collaborative/zephyr_hal_nxp
+      revision: f47ca0b790ed7309c62c8c4685f79a4b5d4cb5fa
       path: modules/hal/nxp
       groups:
         - hal
