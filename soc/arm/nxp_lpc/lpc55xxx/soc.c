@@ -36,7 +36,9 @@
 	TO_CTIMER_CLOCK_SOURCE(DT_CLOCKS_CELL(node_id, name), DT_PROP(node_id, clk_source))
 #define TO_CTIMER_CLOCK_SOURCE(inst, val) TO_CLOCK_ATTACH_ID(inst, val)
 #define TO_CLOCK_ATTACH_ID(inst, val) MUX_A(CM_CTIMERCLKSEL##inst, val)
-#define CTIMER_CLOCK_SETUP(node_id) CLOCK_AttachClk(CTIMER_CLOCK_SOURCE(node_id));
+#define CTIMER_CLOCK_SETUP(node_id) \
+	ctimer_clock_enable(DT_PROP(node_id, clk_source)); \
+	CLOCK_AttachClk(CTIMER_CLOCK_SOURCE(node_id));
 
 #ifdef CONFIG_INIT_PLL0
 const pll_setup_t pll0Setup = {
@@ -49,6 +51,27 @@ const pll_setup_t pll0Setup = {
 	.flags = PLL_SETUPFLAG_WAITLOCK}
 ;
 #endif
+
+/**
+ *
+ * @brief Perform any clock enabling needed for a CTimer to use it
+ *
+ */
+static void ctimer_clock_enable(int clk_source)
+{
+	switch (clk_source)
+	{
+		case 4: /* FRO 1 MHz clock */
+			SYSCON->CLOCK_CTRL |= SYSCON_CLOCK_CTRL_FRO1MHZ_CLK_ENA_MASK;
+			break;
+		case 6: /* FRO 32kHz clock */
+			PMC->PDRUNCFG0 &= ~PMC_PDRUNCFG0_PDEN_FRO32K_MASK;
+			break;
+		default:
+			/* Any other clock source should be enabled already */
+			break;
+	}
+}
 
 /**
  *
