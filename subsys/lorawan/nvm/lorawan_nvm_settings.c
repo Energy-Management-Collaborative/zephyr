@@ -57,6 +57,24 @@ static void lorawan_nvm_save_settings(uint16_t nvm_notify_flag)
 
 	LoRaMacNvmData_t *nvm = mib_req.Param.Contexts;
 
+	/**
+	 * Normally, this would persist data after every tx/rx event.
+	 * That's way too frequent for our desired flash longevity,
+	 * so limit it to when DevNonce changes (or a few times per day)
+	 */
+	const int HOUR = 60 * 60 * 1000;
+	static uint16_t last_dev_nonce = 0;
+	static int64_t last_saved_at = 0;
+	int delay_til_next_save = (6 * HOUR) - (k_uptime_get() - last_saved_at);
+
+	if (last_dev_nonce == mib_req.Param.Contexts->Crypto.DevNonce && delay_til_next_save > 0) {
+		LOG_DBG("Skipping for %d seconds", delay_til_next_save / 1000);
+		return;
+	}
+
+	last_dev_nonce = mib_req.Param.Contexts->Crypto.DevNonce;
+	last_saved_at = k_uptime_get();
+
 	LOG_DBG("Crypto version: %"PRIu32", DevNonce: %d, JoinNonce: %"PRIu32,
 		mib_req.Param.Contexts->Crypto.LrWanVersion.Value,
 		mib_req.Param.Contexts->Crypto.DevNonce,
